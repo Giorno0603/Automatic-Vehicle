@@ -1,0 +1,181 @@
+4-4程式碼: 
+
+#include<ioAT89C51.h> 
+
+#include <stdlib.h> 
+
+#define key P2		/*鍵盤訊號設在port2*/ 
+
+#define scan P3	/*掃描訊號設在port3*/ 
+
+#define seg P1		/*七節燈設在port1*/ 
+
+char  TAB[12]={0xc0,0xf9,0xa4,0xb0,0x99,0x92,0x83,0xf8,0x80,0x98,0x7f,0xff};	/*0~9的二進制*/ 
+
+char keyboard[4][4]={{7,8,9,'/'},{4,5,6,'*'},{1,2,3,'-'},{0,'.','=','+'}};	/*各個數字、符號在鍵盤上的位置*/ 
+
+char scanp[4]={0xef,0xdf,0xbf,0x7f};		/*從第一列到第四列依序掃描*/ 
+
+char col,row;		 
+
+char rowkey;		/*列鍵值*/ 
+
+char disp[3]; 
+
+int a,sec=0,score=0;//時間，分數 
+
+  
+
+delay(int d) 		/*延遲函數*/                   
+
+{ 
+
+  int k, j; 
+
+  for(k=0; k<d; k++) 
+
+    for(j=0; j<120; j++); 
+
+} 
+
+char keyscan(void)		/* 
+
+{ 
+
+   for(col=0;col<4;col++) 
+
+    { 
+
+       
+
+      key=scanp[col]; 
+
+      rowkey=~key&0x0f; 
+
+       
+
+      if(rowkey!=0)  
+
+      { 
+
+        switch(rowkey)//切換行鍵列 
+
+        {  
+
+          case(0x01): {row=0; break;} 
+
+          case(0x02): {row=1; break;} 
+
+          case(0x04): {row=2; break;} 
+
+          case(0x08): {row=3; break;} 
+
+          //break代表不會再計數 
+
+        } 
+
+      return  keyboard[row][col]; 
+
+      } 
+
+       
+
+    } 
+
+    
+
+   return 100;   
+
+}  
+
+  
+
+void scanner(void)    
+
+{ 
+
+  char j; 
+
+  for(j=0;j<3;j++) 
+
+  { 
+
+     scan=0xff;  //全暗 
+
+     P0=TAB[disp[j]]; 
+
+     scan=~(1<<j);//下一個掃描訊號 
+
+     delay(1); 
+
+  } 
+
+  scan=0xff; 
+
+  
+
+} 
+
+int main() 
+
+{  
+
+   int sec=0; 
+
+   int score=0; 
+
+   while(1) 
+
+    { 
+
+       delay(10); 
+
+       a=(rand()%10);//隨機函數除以的餘數 
+
+       while(keyscan()!=a && sec<100) //先判斷按鈕有沒有被按下以及秒數有沒有到 
+
+       {  
+
+         seg=TAB[a];               
+
+         disp[0]=a,disp[1]=score%10,disp[2]=score/10;//顯示要按的數字以及分數disp[0]是要按的、其餘是分數顯示 
+
+         scanner(); 
+
+         if(keyscan()==a) //計分               
+
+          { 
+
+           score=score+1; 
+
+           break;  
+
+          }    
+
+          
+
+         if(keyscan()!=a && keyscan()!=100) //按錯不會扣分，但是會換    
+
+          { 
+
+             a=(rand()%10); 
+
+             break;  
+
+          } 
+
+       } 
+
+       sec++; 
+
+       if(sec>=100)//秒數到了 
+
+       { 
+
+         scanner(); 
+
+       } 
+
+    } 
+
+} 
