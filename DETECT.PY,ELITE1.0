@@ -1,0 +1,200 @@
+if len(det):
+                # Rescale boxes from img_size to im0 size
+                det[:, :4] = scale_coords(img.shape[2:], det[:, :4], im0.shape).round()
+
+                # Print results
+                for c in det[:, -1].unique():
+                    n = (det[:, -1] == c).sum()  # detections per class
+                    s += f"{n} {names[int(c)]}{'s' * (n > 1)}, "  # add to string
+
+                # Write results
+                mainobject  = 350
+                area2 = 1
+                area3 = 1
+                cls1 = False
+                cls2 = False
+                cls3 = False
+                cls4 = False
+                cls5 = False
+                global state
+                global state2
+                global state3
+                for *xyxy, conf, cls in reversed(det):
+                    if save_txt:  # Write to file
+                        xywh = (xyxy2xywh(torch.tensor(xyxy).view(1, 4)) / gn).view(-1).tolist()  # normalized xywh
+                        line = (cls, *xywh, conf) if opt.save_conf else (cls, *xywh)  # label format
+                        with open(txt_path + '.txt', 'a') as f:
+                            f.write(('%g ' * len(line)).rstrip() % line + '\n')
+
+                    if save_img or view_img:  # Add bbox to image
+                        label = f'{names[int(cls)]} {conf:.2f}'
+                        plot_one_box(xyxy, im0, label=label, color=colors[int(cls)], line_thickness=1)
+                        
+                    #**    
+                    if int(cls) == 0 and conf > 0.5:
+                        cls1 = True
+                        reg=[]
+                        for i in xyxy:
+                            reg.append(int(i))
+                        a = (reg[0]+reg[2])/2-320
+                        b = (reg[2]-reg[0])*(reg[3]-reg[1])
+                        if abs(a) < abs(mainobject):
+                            mainobject = a
+                            area = b
+                    elif int(cls) == 56 and conf > 0.6:
+                        cls4 = True
+                        reg=[]
+                        for i in xyxy:
+                            reg.append(int(i))
+                        a = (reg[0]+reg[2])/2-320
+                        b = (reg[2]-reg[0])*(reg[3]-reg[1])
+                        if b > area2:
+                            mainobject2 = a
+                            area2 = b
+                    elif int(cls) == 9 and conf > 0.7:
+                        cls3 = True
+                        reg=[]
+                        for i in xyxy:
+                            reg.append(int(i))
+                        b = (reg[2]-reg[0])*(reg[3]-reg[1])
+                        if b > area3:
+                            area3 = b
+                    elif int(cls) == 100 and conf > 0.7:
+                        cls5 = True
+                if cls3 or cls5:
+                    if not state2:
+                        state2 = True
+                        print("warn")
+                        send_command_to_arduino("W\n")
+                else:
+                    state2 = False
+                if area3 > 20000:
+                    state = False
+                    if not state3:
+                        state3 = True
+                        print("stop")
+                        send_command_to_arduino("S\n")
+                        print("wwarn")
+                        send_command_to_arduino("WW\n")
+                elif state3:
+                    state3 = False
+                elif area2 > 76800 and abs(mainobject2) < 200 and cls3:
+                    state = False
+                    print("stop")
+                    send_command_to_arduino("S\n")
+                elif area2 >85000 and abs(mainobject2) < 200 :
+                    cls2 = True
+                    if not state:
+                        print("stop")
+                        send_command_to_arduino("S\n")
+                        resp = input ("avoid obstacle?")
+                        if resp == 'y':
+                            #cls2 = True
+                        # if not state:
+                            state = True
+                            if mainobject2 < 0:
+                                print("turnright")
+                                send_command_to_arduino("R\n")
+                                start = time.process_time()
+                            else :
+                                print("turnleft")
+                                send_command_to_arduino("L\n")
+                                start = time.process_time()
+                elif state and abs(mainobject2) > 300:
+                    end = time.process_time()
+                    state = False 
+                    if mainobject2 < 0:
+                        print("forward")
+                        send_command_to_arduino("F\n")
+                        time.sleep(2*(1.2+end-start))
+                        print("turnleft")
+                        send_command_to_arduino("L\n")
+                        time.sleep(end-start)
+                        print("stop")
+                        send_command_to_arduino("S\n")
+                    else :
+                        print("forward")
+                        send_command_to_arduino("F\n")
+                        time.sleep(2*(1.2+end-start))
+                        print("turnright")
+                        send_command_to_arduino("R\n")
+                        time.sleep(end-start)
+                        print("stop")
+                        send_command_to_arduino("S\n")
+                elif state and not cls2:
+                    end = time.process_time()
+                    state = False 
+                    if mainobject2 < 0:
+                        print("forward")
+                        send_command_to_arduino("F\n")
+                        time.sleep(2*(1.2+end-start))
+                        print("turnleft")
+                        send_command_to_arduino("L\n")
+                        time.sleep(end-start)
+                        print("stop")
+                        send_command_to_arduino("S\n")
+                    else :
+                        print("forward")
+                        send_command_to_arduino("F\n")
+                        time.sleep(2*(1.2+end-start))
+                        print("turnright")
+                        send_command_to_arduino("R\n")
+                        time.sleep(end-start)
+                        print("stop")
+                        send_command_to_arduino("S\n")
+                elif not state:
+                    if cls1:
+                        if mainobject > 320 or mainobject < -320:
+                            send_command_to_arduino("S\n")
+                            print("stop")
+                        elif mainobject < -100 and area < 61440:
+                            print("fl")
+                            send_command_to_arduino("FL\n")
+                        elif mainobject > 100 and area < 61440:
+                            print("fr")
+                            send_command_to_arduino("FR\n")
+                        elif mainobject < -100:
+                            print("turnleft")
+                            send_command_to_arduino("L\n")
+                        elif mainobject > 100:
+                            print("turnright")
+                            send_command_to_arduino("R\n")
+                        elif area < 50000:
+                            print("forward")
+                            send_command_to_arduino("F\n")
+                        elif area < 61440:
+                            print("sforward")
+                            send_command_to_arduino("SF\n")
+                        else:
+                            send_command_to_arduino("S\n")
+                            print("stop")
+                    elif cls4:
+                        print("forward")
+                        send_command_to_arduino("F\n")
+                    else:
+                        send_command_to_arduino("S\n")
+                        print("stop")
+            elif state:
+                end = time.process_time()
+                state = False 
+                if mainobject2 < 0:
+                    print("forward")
+                    send_command_to_arduino("F\n")
+                    time.sleep(2*(1.2+end-start))
+                    print("turnleft")
+                    send_command_to_arduino("L\n")
+                    time.sleep(end-start)
+                    print("stop")
+                    send_command_to_arduino("S\n")
+                else :
+                    print("forward")
+                    send_command_to_arduino("F\n")
+                    time.sleep(2*(1.2+end-start))
+                    print("turnright")
+                    send_command_to_arduino("R\n")
+                    time.sleep(end-start)
+                    print("stop")
+                    send_command_to_arduino("S\n")
+            else:
+                print("stop")
+                send_command_to_arduino("S\n")
